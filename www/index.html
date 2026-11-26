@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Arsip Digital Guru</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; -webkit-tap-highlight-color: transparent; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="text-slate-800 pb-24">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-teal-700 to-emerald-600 text-white pt-6 pb-8 px-5 rounded-b-3xl shadow-lg sticky top-0 z-20">
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <p class="text-teal-100 text-xs font-medium tracking-wider uppercase">Penyimpanan Offline</p>
+        <h1 class="text-2xl font-bold tracking-tight">Arsip Digital Guru</h1>
+      </div>
+      <button onclick="openCategoryModal()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-folder-plus"></i> Kategori
+      </button>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="relative">
+      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-teal-700/60 text-sm"></i>
+      <input type="text" id="searchInput" oninput="renderDocuments()" placeholder="Cari nama SK, RPP, sertifikat..." 
+        class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white text-slate-800 placeholder-slate-400 text-sm focus:outline-none shadow-sm">
+    </div>
+  </header>
+
+  <!-- Filter Kategori Horizontal -->
+  <div class="px-4 mt-4">
+    <div id="categoryTabs" class="flex gap-2 overflow-x-auto no-scrollbar py-1"></div>
+  </div>
+
+  <!-- Statistik Ringkas -->
+  <div class="px-4 mt-3 flex justify-between items-center text-xs text-slate-500">
+    <span id="docCountText">Memuat arsip...</span>
+    <span class="flex items-center gap-1 text-emerald-700 font-medium"><i class="fa-solid fa-shield-halved"></i> Tersimpan Lokal</span>
+  </div>
+
+  <!-- Daftar Berkas -->
+  <main id="docList" class="px-4 mt-3 grid grid-cols-1 gap-3"></main>
+
+  <!-- Empty State -->
+  <div id="emptyState" class="hidden flex-col items-center justify-center text-center px-8 mt-16">
+    <div class="w-20 h-20 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-3xl mb-4">
+      <i class="fa-solid fa-folder-open"></i>
+    </div>
+    <h3 class="font-bold text-slate-700 text-base">Belum Ada Berkas Arsip</h3>
+    <p class="text-xs text-slate-500 mt-1">Gunakan tombol <b>Upload Berkas</b> atau <b>Scan Kamera</b> di bawah untuk mulai menyimpan dokumen.</p>
+  </div>
+
+  <!-- Bottom Action Bar (Upload & Scan) -->
+  <div class="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t border-slate-200 p-3 px-5 flex gap-3 z-30 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+    <button onclick="triggerUpload()" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition">
+      <i class="fa-solid fa-file-arrow-up text-teal-400"></i> Upload Berkas
+    </button>
+    <button onclick="triggerCamera()" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition">
+      <i class="fa-solid fa-camera"></i> Scan Kamera
+    </button>
+  </div>
+
+  <!-- Hidden File Inputs -->
+  <input type="file" id="fileInput" class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="handleFileSelected(event, false)">
+  <input type="file" id="cameraInput" class="hidden" accept="image/*" capture="environment" onchange="handleFileSelected(event, true)">
+
+  <!-- Modal Simpan Dokumen Baru -->
+  <div id="saveModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-end sm:items-center justify-center z-50">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="font-bold text-lg text-slate-800" id="modalTitle">Simpan Arsip Baru</h2>
+        <button onclick="closeSaveModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+
+      <div id="previewContainer" class="mb-4 bg-slate-100 rounded-xl p-3 flex items-center gap-3 border border-slate-200">
+        <img id="scanPreviewImg" class="w-14 h-14 object-cover rounded-lg hidden" />
+        <div id="fileIconPreview" class="w-12 h-12 bg-teal-100 text-teal-700 rounded-lg flex items-center justify-center text-xl">
+          <i class="fa-solid fa-file"></i>
+        </div>
+        <div class="overflow-hidden flex-1">
+          <p id="rawFileName" class="text-xs font-semibold text-slate-700 truncate">dokumen.pdf</p>
+          <p id="rawFileSize" class="text-[11px] text-slate-500">0 KB</p>
+          <label id="enhanceToggleWrap" class="hidden items-center gap-1.5 mt-1 text-xs text-teal-700 font-medium cursor-pointer">
+            <input type="checkbox" id="enhanceScanCheck" checked onchange="toggleScanEnhance()" class="accent-teal-600">
+            Mode Scan Dokumen (Jernih & Kontras)
+          </label>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Judul / Nama Arsip</label>
+          <input type="text" id="docTitleInput" placeholder="Contoh: SK Pembagian Tugas 2026" 
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-teal-600">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Kategori</label>
+          <select id="docCategorySelect" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-teal-600"></select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Catatan Singkat (Opsional)</label>
+          <input type="text" id="docNoteInput" placeholder="Semester Ganjil / Nomor SK..." 
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-teal-600">
+        </div>
+      </div>
+
+      <button onclick="saveDocument()" class="w-full mt-5 bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-xl font-bold text-sm shadow-md">
+        Simpan ke Arsip Offline
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal Kelola Kategori -->
+  <div id="categoryModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-end sm:items-center justify-center z-50">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="font-bold text-lg text-slate-800">Atur Kategori Arsip</h2>
+        <button onclick="closeCategoryModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+
+      <div class="flex gap-2 mb-4">
+        <input type="text" id="newCatInput" placeholder="Nama kategori baru..." 
+          class="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-teal-600">
+        <button onclick="addCategory()" class="bg-teal-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-teal-700">
+          Tambah
+        </button>
+      </div>
+
+      <div id="categoryManageList" class="max-h-60 overflow-y-auto space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- Modal Preview Berkas -->
+  <div id="viewModal" class="fixed inset-0 bg-slate-900/80 hidden flex-col z-50">
+    <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+      <h3 id="viewTitle" class="font-semibold text-sm truncate pr-4">Preview Berkas</h3>
+      <div class="flex items-center gap-3">
+        <button id="viewShareBtn" class="bg-teal-600 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+          <i class="fa-solid fa-share-nodes"></i> Share
+        </button>
+        <button onclick="closeViewModal()" class="text-slate-300 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+    <div id="viewBody" class="flex-1 flex items-center justify-center p-4 overflow-auto"></div>
+  </div>
+
+  <script>
+    let db;
+    const DB_NAME = "ArsipGuruDB";
+    const DB_VERSION = 1;
+    const DEFAULT_CATEGORIES = [
+      "Administrasi Mengajar",
+      "SK & Kepegawaian",
+      "Sertifikat & Diklat",
+      "Perangkat Ajar / Modul",
+      "Dokumen Pribadi"
+    ];
+
+    let categories = JSON.parse(localStorage.getItem("guru_categories")) || DEFAULT_CATEGORIES;
+    let activeCategory = "Semua";
+    let pendingFile = null;
+    let isPendingScan = false;
+    let processedScanBlob = null;
+
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (e) => {
+      db = e.target.result;
+      if (!db.objectStoreNames.contains("documents")) {
+        db.createObjectStore("documents", { keyPath: "id", autoIncrement: true });
+      }
+    };
+    request.onsuccess = (e) => {
+      db = e.target.result;
+      renderCategoryTabs();
+      renderDocuments();
+    };
+
+    function saveCategories() {
+      localStorage.setItem("guru_categories", JSON.stringify(categories));
+      renderCategoryTabs();
+      renderDocuments();
+    }
+
+    function renderCategoryTabs() {
+      const container = document.getElementById("categoryTabs");
+      const allCats = ["Semua", ...categories];
+      container.innerHTML = allCats.map(cat => {
+        const active = cat === activeCategory;
+        return `<button onclick="selectCategory('${cat}')" 
+          class="whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+            active ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          }">${cat}</button>`;
+      }).join("");
+    }
+
+    function selectCategory(cat) {
+      activeCategory = cat;
+      renderCategoryTabs();
+      renderDocuments();
+    }
+
+    function openCategoryModal() {
+      renderCategoryManageList();
+      document.getElementById("categoryModal").classList.remove("hidden");
+      document.getElementById("categoryModal").classList.add("flex");
+    }
+
+    function closeCategoryModal() {
+      document.getElementById("categoryModal").classList.add("hidden");
+      document.getElementById("categoryModal").classList.remove("flex");
+    }
+
+    function renderCategoryManageList() {
+      const list = document.getElementById("categoryManageList");
+      list.innerHTML = categories.map((cat, idx) => `
+        <div class="flex justify-between items-center bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-200">
+          <span class="text-sm font-medium text-slate-700">${cat}</span>
+          <button onclick="deleteCategory(${idx})" class="text-rose-500 hover:text-rose-700 text-xs px-2 py-1">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `).join("");
+    }
+
+    function addCategory() {
+      const input = document.getElementById("newCatInput");
+      const val = input.value.trim();
+      if (!val) return;
+      if (!categories.includes(val)) {
+        categories.push(val);
+        saveCategories();
+        renderCategoryManageList();
+      }
+      input.value = "";
+    }
+
+    function deleteCategory(index) {
+      if (categories.length <= 1) {
+        alert("Minimal harus ada 1 kategori.");
+        return;
+      }
+      const removed = categories[index];
+      categories.splice(index, 1);
+      if (activeCategory === removed) activeCategory = "Semua";
+      saveCategories();
+      renderCategoryManageList();
+    }
+
+    function triggerUpload() {
+      document.getElementById("fileInput").click();
+    }
+
+    function triggerCamera() {
+      document.getElementById("cameraInput").click();
+    }
+
+    async function handleFileSelected(event, isScan) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      pendingFile = file;
+      isPendingScan = isScan;
+      processedScanBlob = null;
+
+      document.getElementById("modalTitle").innerText = isScan ? "Simpan Hasil Scan Kamera" : "Simpan Berkas Upload";
+      document.getElementById("rawFileName").innerText = isScan ? `Scan_${new Date().toLocaleDateString('id-ID').replace(/\//g,'-')}.jpg` : file.name;
+      document.getElementById("rawFileSize").innerText = (file.size / 1024).toFixed(1) + " KB";
+      document.getElementById("docTitleInput").value = file.name.replace(/\.[^/.]+$/, "");
+      document.getElementById("docNoteInput").value = "";
+
+      const select = document.getElementById("docCategorySelect");
+      select.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join("");
+      if (activeCategory !== "Semua") select.value = activeCategory;
+
+      const imgPreview = document.getElementById("scanPreviewImg");
+      const iconPreview = document.getElementById("fileIconPreview");
+      const enhanceWrap = document.getElementById("enhanceToggleWrap");
+
+      if (file.type.startsWith("image/")) {
+        iconPreview.classList.add("hidden");
+        imgPreview.classList.remove("hidden");
+        if (isScan) {
+          enhanceWrap.classList.remove("hidden");
+          enhanceWrap.classList.add("flex");
+          await applyDocumentFilter(file);
+        } else {
+          enhanceWrap.classList.add("hidden");
+          imgPreview.src = URL.createObjectURL(file);
+        }
+      } else {
+        imgPreview.classList.add("hidden");
+        enhanceWrap.classList.add("hidden");
+        iconPreview.classList.remove("hidden");
+      }
+
+      document.getElementById("saveModal").classList.remove("hidden");
+      document.getElementById("saveModal").classList.add("flex");
+      event.target.value = "";
+    }
+
+    function applyDocumentFilter(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxDim = 1600;
+          let w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = (h / w) * maxDim; w = maxDim; }
+            else { w = (w / h) * maxDim; h = maxDim; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.filter = "contrast(1.35) brightness(1.08) grayscale(0.2)";
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            processedScanBlob = blob;
+            document.getElementById("scanPreviewImg").src = URL.createObjectURL(blob);
+            resolve();
+          }, "image/jpeg", 0.85);
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    async function toggleScanEnhance() {
+      const checked = document.getElementById("enhanceScanCheck").checked;
+      if (checked && pendingFile) {
+        await applyDocumentFilter(pendingFile);
+      } else if (pendingFile) {
+        processedScanBlob = null;
+        document.getElementById("scanPreviewImg").src = URL.createObjectURL(pendingFile);
+      }
+    }
+
+    function closeSaveModal() {
+      document.getElementById("saveModal").classList.add("hidden");
+      document.getElementById("saveModal").classList.remove("flex");
+      pendingFile = null;
+    }
+
+    function saveDocument() {
+      const title = document.getElementById("docTitleInput").value.trim() || "Tanpa Judul";
+      const category = document.getElementById("docCategorySelect").value;
+      const note = document.getElementById("docNoteInput").value.trim();
+      const fileToStore = (isPendingScan && processedScanBlob) ? processedScanBlob : pendingFile;
+      const fileName = isPendingScan ? `${title.replace(/\s+/g, '_')}.jpg` : pendingFile.name;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const docRecord = {
+          title,
+          category,
+          note,
+          fileName,
+          fileType: fileToStore.type || "application/octet-stream",
+          fileSize: fileToStore.size,
+          isScan: isPendingScan,
+          createdAt: new Date().toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }),
+          dataUrl: reader.result
+        };
+
+        const tx = db.transaction(["documents"], "readwrite");
+        tx.objectStore("documents").add(docRecord);
+        tx.oncomplete = () => {
+          closeSaveModal();
+          renderDocuments();
+        };
+      };
+      reader.readAsDataURL(fileToStore);
+    }
+
+    function renderDocuments() {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      const tx = db.transaction(["documents"], "readonly");
+      const store = tx.objectStore("documents");
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        let docs = req.result.reverse();
+        if (activeCategory !== "Semua") {
+          docs = docs.filter(d => d.category === activeCategory);
+        }
+        if (query) {
+          docs = docs.filter(d => 
+            d.title.toLowerCase().includes(query) || 
+            (d.note && d.note.toLowerCase().includes(query)) ||
+            d.category.toLowerCase().includes(query)
+          );
+        }
+
+        document.getElementById("docCountText").innerText = `Menampilkan ${docs.length} berkas arsip`;
+        const list = document.getElementById("docList");
+        const empty = document.getElementById("emptyState");
+
+        if (docs.length === 0) {
+          list.innerHTML = "";
+          empty.classList.remove("hidden");
+          empty.classList.add("flex");
+          return;
+        }
+
+        empty.classList.add("hidden");
+        empty.classList.remove("flex");
+
+        list.innerHTML = docs.map(doc => {
+          const isImg = doc.fileType.startsWith("image/");
+          const isPdf = doc.fileType.includes("pdf");
+          let badgeIcon = `<i class="fa-solid fa-file-lines text-blue-600"></i>`;
+          let badgeBg = "bg-blue-50";
+          if (doc.isScan) { badgeIcon = `<i class="fa-solid fa-camera text-teal-600"></i>`; badgeBg = "bg-teal-50"; }
+          else if (isPdf) { badgeIcon = `<i class="fa-solid fa-file-pdf text-rose-600"></i>`; badgeBg = "bg-rose-50"; }
+          else if (isImg) { badgeIcon = `<i class="fa-solid fa-image text-amber-600"></i>`; badgeBg = "bg-amber-50"; }
+
+          return `
+            <div class="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-200/80 flex items-center gap-3.5">
+              <div onclick="viewDocument(${doc.id})" class="w-12 h-12 ${badgeBg} rounded-xl flex items-center justify-center text-xl shrink-0 cursor-pointer">
+                ${badgeIcon}
+              </div>
+              <div onclick="viewDocument(${doc.id})" class="flex-1 min-w-0 cursor-pointer">
+                <span class="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 mb-1">
+                  ${doc.category}
+                </span>
+                <h4 class="font-bold text-sm text-slate-800 truncate">${doc.title}</h4>
+                <p class="text-[11px] text-slate-400 truncate">
+                  ${doc.createdAt} • ${(doc.fileSize / 1024).toFixed(0)} KB ${doc.note ? '• ' + doc.note : ''}
+                </p>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button onclick="shareDocument(${doc.id})" title="Bagikan" class="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 hover:bg-teal-100 flex items-center justify-center transition">
+                  <i class="fa-solid fa-share-nodes text-sm"></i>
+                </button>
+                <button onclick="deleteDocument(${doc.id})" title="Hapus" class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center transition">
+                  <i class="fa-solid fa-trash-can text-sm"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      };
+    }
+
+    function viewDocument(id) {
+      const tx = db.transaction(["documents"], "readonly");
+      tx.objectStore("documents").get(id).onsuccess = (e) => {
+        const doc = e.target.result;
+        if (!doc) return;
+        document.getElementById("viewTitle").innerText = doc.title;
+        document.getElementById("viewShareBtn").onclick = () => shareDocument(doc.id);
+        const body = document.getElementById("viewBody");
+
+        if (doc.fileType.startsWith("image/")) {
+          body.innerHTML = `<img src="${doc.dataUrl}" class="max-w-full max-h-full rounded-lg shadow-lg" />`;
+        } else {
+          body.innerHTML = `
+            <div class="bg-white text-slate-800 p-6 rounded-2xl text-center max-w-xs">
+              <i class="fa-solid fa-file-circle-check text-5xl text-teal-600 mb-3"></i>
+              <h4 class="font-bold text-base mb-1">${doc.fileName}</h4>
+              <p class="text-xs text-slate-500 mb-4">Klik tombol Share di pojok kanan atas untuk membuka berkas ini di aplikasi pembaca PDF/Office di HP Anda.</p>
+              <button onclick="shareDocument(${doc.id})" class="w-full bg-teal-600 text-white py-2.5 rounded-xl text-xs font-bold">
+                Buka / Bagikan Berkas
+              </button>
+            </div>
+          `;
+        }
+        document.getElementById("viewModal").classList.remove("hidden");
+        document.getElementById("viewModal").classList.add("flex");
+      };
+    }
+
+    function closeViewModal() {
+      document.getElementById("viewModal").classList.add("hidden");
+      document.getElementById("viewModal").classList.remove("flex");
+    }
+
+    async function shareDocument(id) {
+      const tx = db.transaction(["documents"], "readonly");
+      tx.objectStore("documents").get(id).onsuccess = async (e) => {
+        const doc = e.target.result;
+        if (!doc) return;
+
+        try {
+          const res = await fetch(doc.dataUrl);
+          const blob = await res.blob();
+          const file = new File([blob], doc.fileName, { type: doc.fileType });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: doc.title,
+              text: `Arsip Digital Guru - ${doc.category}: ${doc.title}`,
+              files: [file]
+            });
+          } else {
+            const a = document.createElement("a");
+            a.href = doc.dataUrl;
+            a.download = doc.fileName;
+            a.click();
+          }
+        } catch (err) {
+          console.log("Share dibatalkan atau gagal:", err);
+        }
+      };
+    }
+
+    function deleteDocument(id) {
+      if (!confirm("Hapus berkas arsip ini dari penyimpanan HP?")) return;
+      const tx = db.transaction(["documents"], "readwrite");
+      tx.objectStore("documents").delete(id);
+      tx.oncomplete = () => renderDocuments();
+    }
+  </script>
+</body>
+</html>

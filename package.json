@@ -1,0 +1,17 @@
+{
+  "name": "arsip-digital-guru",
+  "version": "1.0.0",
+  "description": "Aplikasi Penyimpanan Arsip Digital Guru Offline",
+  "scripts": {
+    "build": "echo 'Static build ready'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/share": "^6.0.0",
+    "@capacitor/filesystem": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

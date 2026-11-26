@@ -1,0 +1,9 @@
+{
+  "appId": "id.guru.arsipdigital",
+  "appName": "Arsip Digital Guru",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  }
+}
